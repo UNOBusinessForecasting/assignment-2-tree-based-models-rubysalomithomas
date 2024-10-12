@@ -1,66 +1,52 @@
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
 import pandas as pd
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.preprocessing import LabelEncoder
 
-def load_data(url):
-    return pd.read_csv(url)
+# Load training data
+train_url = "https://github.com/dustywhite7/Econ8310/raw/master/AssignmentData/assignment3.csv"
+train_data = pd.read_csv(train_url)
 
-def prepare_features(df):
-    target = df["meal"]
-    features = df.drop(["meal", "id", "DateTime"], axis=1)
-    return features, target
+# Load test data
+test_url = "https://github.com/dustywhite7/Econ8310/raw/master/AssignmentData/assignment3test.csv"
+test_data = pd.read_csv(test_url)
 
-def create_model():
-    return DecisionTreeClassifier(max_depth=15, min_samples_leaf=5, random_state=42)
+# Assuming 'meal' is already binary, but check and encode if necessary
+train_data['meal'] = train_data['meal'].astype(int)
 
-def evaluate_model(model, X, y):
-    predictions = model.predict(X)
-    return round(100 * accuracy_score(y, predictions), 2)
+# --- Changes start here ---
+# Convert 'DateTime' to numerical features
+# Extract features from DateTime
+for df in [train_data, test_data]:
+    df['DateTime'] = pd.to_datetime(df['DateTime'])  # Convert to datetime objects
+    df['Year'] = df['DateTime'].dt.year
+    df['Month'] = df['DateTime'].dt.month
+    df['Day'] = df['DateTime'].dt.day
+    df['Hour'] = df['DateTime'].dt.hour
+    df['Minute'] = df['DateTime'].dt.minute
+# --- Changes end here ---
 
-# Initialize global variables
-model = None
-modelFit = None
-pred = None
+# Drop irrelevant columns or features, especially 'id' which is a string
+X_train = train_data.drop(['meal', 'id', 'DateTime'], axis=1)  # Dropping 'id' and 'DateTime' columns
+y_train = train_data['meal']
 
-def main():
-    global model, modelFit, pred
-    
-    # Load and prepare training data
-    train_url = "https://github.com/dustywhite7/Econ8310/raw/master/AssignmentData/assignment3.csv"
-    df = load_data(train_url)
-    features, target = prepare_features(df)
+# The test data should have the same structure, minus the 'meal' column
+# --- The fix: Explicitly drop 'meal' from X_test ---
+X_test = test_data.drop(['id', 'DateTime', 'meal'], axis=1)  # Dropping 'id', 'DateTime', and 'meal' columns from test data
+# --- End of fix ---
 
-    # Split the data
-    train_X, test_X, train_Y, test_Y = train_test_split(features, target, test_size=0.33, random_state=42)
 
-    # Create and train the model
-    model = create_model()
-    modelFit = model.fit(train_X, train_Y)
+# Initialize the model
+model = DecisionTreeClassifier()
 
-    # Evaluate the model
-    print(f"\n\nIn-sample accuracy: {evaluate_model(model, train_X, train_Y)}%\n\n")
-    print(f"\n\nOut-of-sample accuracy: {evaluate_model(model, test_X, test_Y)}%\n\n")
+# Fit the model
+modelFit = model.fit(X_train, y_train)
 
-    # Load and prepare test data
-    test_url = "https://github.com/dustywhite7/Econ8310/raw/master/AssignmentData/assignment3test.csv"
-    test_df = load_data(test_url)
-    new_test, _ = prepare_features(test_df)
+# Generate predictions
+pred = modelFit.predict(X_test)
 
-    # Make predictions
-    pred = model.predict(new_test)
+# Convert predictions to binary if needed
+pred = [1 if p > 0.5 else 0 for p in pred]  # If you want hard classification
+import joblib
 
-    # Add predictions to the test dataframe
-    test_df["predicted_meal"] = pred
-
-    # Display the first few predictions
-    print(test_df[["id", "predicted_meal"]].head())
-
-    # Save predictions to a CSV file
-    test_df[["id", "predicted_meal"]].to_csv("meal_predictions.csv", index=False)
-
-if _name_ == "_main_":
-    main()
-else:
-    # If the script is imported, run main() to initialize the global variables
-    main()
+# Save the model
+joblib.dump(modelFit, 'modelFit.pkl')
