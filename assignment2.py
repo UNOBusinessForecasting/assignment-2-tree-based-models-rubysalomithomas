@@ -1,52 +1,29 @@
-import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+import pandas as pd
 
-# Load training data
-train_url = "https://github.com/dustywhite7/Econ8310/raw/master/AssignmentData/assignment3.csv"
-train_data = pd.read_csv(train_url)
+df = pd.read_csv("https://github.com/dustywhite7/Econ8310/raw/master/AssignmentData/assignment3.csv")
+target = df["meal"]
+features = df.drop(["meal", "id", "DateTime"], axis=1)
 
-# Load test data
-test_url = "https://github.com/dustywhite7/Econ8310/raw/master/AssignmentData/assignment3test.csv"
-test_data = pd.read_csv(test_url)
+train_X, test_X, train_Y, test_Y = train_test_split(features, target, test_size=0.33, random_state=42)
 
-# Assuming 'meal' is already binary, but check and encode if necessary
-train_data['meal'] = train_data['meal'].astype(int)
+Switching to a simpler Decision Tree model for better interpretability and tuning
+model = DecisionTreeClassifier(max_depth=15, min_samples_leaf=5, random_state=42)
+modelFit = model.fit(train_X, train_Y)
 
-# --- Changes start here ---
-# Convert 'DateTime' to numerical features
-# Extract features from DateTime
-for df in [train_data, test_data]:
-    df['DateTime'] = pd.to_datetime(df['DateTime'])  # Convert to datetime objects
-    df['Year'] = df['DateTime'].dt.year
-    df['Month'] = df['DateTime'].dt.month
-    df['Day'] = df['DateTime'].dt.day
-    df['Hour'] = df['DateTime'].dt.hour
-    df['Minute'] = df['DateTime'].dt.minute
-# --- Changes end here ---
+print(f"\n\nIn-sample accuracy: {round(100 * accuracy_score(train_Y, model.predict(train_X)), 2)}%\n\n")
+print(f"\n\nOut-of-sample accuracy: {round(100 * accuracy_score(test_Y, model.predict(test_X)), 2)}%\n\n")
 
-# Drop irrelevant columns or features, especially 'id' which is a string
-X_train = train_data.drop(['meal', 'id', 'DateTime'], axis=1)  # Dropping 'id' and 'DateTime' columns
-y_train = train_data['meal']
+test_df = pd.read_csv("https://github.com/dustywhite7/Econ8310/raw/master/AssignmentData/assignment3test.csv")
+new_test = test_df.drop(["meal", "id", "DateTime"], axis=1)
+pred = model.predict(new_test)
 
-# The test data should have the same structure, minus the 'meal' column
-# --- The fix: Explicitly drop 'meal' from X_test ---
-X_test = test_data.drop(['id', 'DateTime', 'meal'], axis=1)  # Dropping 'id', 'DateTime', and 'meal' columns from test data
-# --- End of fix ---
+test_df["predicted_meal"] = pred
+print(test_df[["id", "predicted_meal"]].head())
 
-
-# Initialize the model
-model = DecisionTreeClassifier()
-
-# Fit the model
-modelFit = model.fit(X_train, y_train)
-
-# Generate predictions
-pred = modelFit.predict(X_test)
-
-# Convert predictions to binary if needed
-pred = [1 if p > 0.5 else 0 for p in pred]  # If you want hard classification
-import joblib
-
-# Save the model
-joblib.dump(modelFit, 'modelFit.pkl')
+test_df[["id", "predicted_meal"]].to_csv("meal_predictions.csv", index=False)
+﻿
+vijay
+vijay_90412
